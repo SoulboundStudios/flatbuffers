@@ -20,7 +20,7 @@
 #include <iostream>
 
 namespace flatbuffers {
-	const char * outExt = ".schema.json";
+	const char * outExt = ".json";
 
   static std::string GeneratedFileName(const std::string &path,
                                        const std::string &file_name) {
@@ -55,19 +55,19 @@ namespace flatbuffers {
 	private:
 		CodeWriter code_;
 
-		template <class T> std::string GenFullName(const T *enum_def) {
+		std::string GenFullName(const Definition *def) {
 			std::string full_name;
-			const auto &name_spaces = enum_def->defined_namespace->components;
+			const auto &name_spaces = def->defined_namespace->components;
 			for (auto ns = name_spaces.cbegin(); ns != name_spaces.cend(); ++ns) {
 				full_name.append(*ns + "_");
 			}
-			full_name.append(enum_def->name);
+			full_name.append(def->name);
 			return full_name;
 		}
 
-		template <class T> std::string GenTypeRef(const T *enum_def) {
+		std::string GenTypeRef(const Definition *def) {
 			  std::string ret = "\"$ref\" : \"";
-			  auto basename = flatbuffers::StripPath(flatbuffers::StripExtension(enum_def->file));
+			  auto basename = flatbuffers::StripPath(flatbuffers::StripExtension(def->file));
 
 		  if (basename != this->file_name_)
 		  {
@@ -76,7 +76,7 @@ namespace flatbuffers {
 			ret += basename + outExt;
 		  }
         
-		  ret += "#/definitions/" + GenFullName(enum_def) + "\"";
+		  ret += "#/definitions/" + GenFullName(def) + "\"";
 
 		  return ret;
 		}
@@ -142,7 +142,7 @@ namespace flatbuffers {
         code_.Clear();
         code_ += "{";
         code_ += "  \"$schema\": \"http://json-schema.org/draft-04/schema#\",";
-        code_ += "  \"$id\": \"file://" + this->file_name_ + outExt + "\",";
+        code_ += "  \"$id\": \"" + this->file_name_ + outExt + "\",";
         code_ += "  \"definitions\": {";
         for (auto e = parser_.enums_.vec.cbegin();
              e != parser_.enums_.vec.cend();
@@ -172,9 +172,12 @@ namespace flatbuffers {
           code_ += enumdef;
           code_ += "    },";  // close type
         }
+
+		bool firstStruct = true;
         for (auto s = parser_.structs_.vec.cbegin(); 
              s != parser_.structs_.vec.cend();
              ++s) {
+
 		  const auto &structure = *s;
           if (!parser_.opts.include_dependence_headers)
           {
@@ -184,7 +187,12 @@ namespace flatbuffers {
               continue;
           }
 
-          code_ += "";
+		  if (firstStruct) {
+			  firstStruct = false;
+		  } else {
+			  code_ += ",";
+		  }
+
           code_ += "    \"" + GenFullName(structure) + "\" : {";
           code_ += "      " + GenType("object") + ",";
           std::string comment;
@@ -221,10 +229,11 @@ namespace flatbuffers {
             }          
             code_ += typeLine;
           }
+		  code_ += "      }\\";  // close properties
 
           std::vector<FieldDef *> requiredProperties;
           if (structure->fixed) {
-            // all fields are required for fixed structs
+            // all fields are required for fixed struct
             requiredProperties.resize(properties.size());
             std::copy(properties.begin(), properties.end(), requiredProperties.begin());
           } else {
@@ -243,7 +252,8 @@ namespace flatbuffers {
             );
           }
           if (requiredProperties.size() > 0) {
-			      code_ += "      },";  // close properties
+			code_ += ",";
+
             std::string required_string("      \"required\" : [ ");
             for (auto req_prop = requiredProperties.cbegin();
                 req_prop != requiredProperties.cend();
@@ -253,31 +263,56 @@ namespace flatbuffers {
                 required_string.append(", ");
               }
             }
-            required_string.append("]");
+            required_string.append(" ]\\");
             code_ += required_string;
-          } else {
-            code_ += "      }";  // close properties
-          }
+		  }
 
-          std::string closeType("    }");
-          if (*s != parser_.structs_.vec.back()) {
-            closeType.append(",");
-          }
-          code_ += closeType;  // close type
+		  auto *sibling = structure->attributes.Lookup("sibling");
+		  auto *siblingType = structure->attributes.Lookup("siblingType");
+		  if (sibling
+			  && siblingType
+			  && sibling->type.base_type == BASE_TYPE_STRING
+			  && siblingType->type.base_type == BASE_TYPE_STRING) {
+			  code_ += ",";
+
+			  code_ += "      \"requiredSiblings\" : {";
+
+			  std::vector<std::string> siblings = tokenize(sibling->constant, ", ");
+			  std::vector<std::string> siblingTypes = tokenize(siblingType->constant, ", ");
+			  size_t endIdx = std::min(siblings.size(), siblingTypes.size());
+			  for (size_t idx = 0; idx < endIdx; ++idx)
+			  {
+				  std::string &typeName = siblingTypes[idx];
+				  Definition *def = parser_.LookupStruct(typeName);
+				  if (!def)
+					  def = parser_.LookupEnum(typeName);
+				  if (!def)
+					  continue;
+
+				  std::string sibling_string("        \"" + siblings[idx] + "\": { " + GenTypeRef(def) + " }");
+				  if (idx != endIdx - 1)
+					  sibling_string.append(",");
+	
+				  code_ += sibling_string;
+			  }
+			  code_ += "      }\\";	// close siblings
+		  }
+
+		  code_ += "";
+		  code_ += "    }\\";	// close struct
         }
 
+		code_ += "";
+		code_ += "  }\\";	// close definitions
+
 		// mark root type
-		bool hasDef = (parser_.root_struct_def_ && flatbuffers::StripPath(flatbuffers::StripExtension(parser_.root_struct_def_->file)) == file_name_);
-
-		std::string closeDefs("  }");
-		if(hasDef)
-          closeDefs.append(",");
-
-		code_ += closeDefs;  // close definitions
-
-		if(hasDef)
-			code_ += "  \"$ref\" : \"#/definitions/" +
-                   GenFullName(parser_.root_struct_def_) + "\"";
+		if (parser_.root_struct_def_ && flatbuffers::StripPath(flatbuffers::StripExtension(parser_.root_struct_def_->file)) == file_name_)
+		{
+			code_ += ",";
+			code_ += "  \"$ref\" : \"#/definitions/" + GenFullName(parser_.root_struct_def_) + "\"";
+		} else {
+			code_ += "";
+		}
 
         code_ += "}";  // close schema root
         const std::string file_path = GeneratedFileName(path_, file_name_);

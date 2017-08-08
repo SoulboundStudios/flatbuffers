@@ -45,6 +45,9 @@
 
 namespace flatbuffers {
 
+// return a vector of strings split by the provided separators
+std::vector<std::string> tokenize(std::string const &in, std::string const &sep);
+
 // Convert an integer or floating point value to a string.
 // In contrast to std::stringstream, "char" values are
 // converted to a string of digits, and we don't use scientific notation.

@@ -18,6 +18,18 @@
 
 namespace flatbuffers {
 
+std::vector<std::string> tokenize(std::string const &in, std::string const &sep) {
+	std::string::size_type b = 0;
+	std::vector<std::string> result;
+
+	while ((b = in.find_first_not_of(sep, b)) != std::string::npos) {
+		auto e = in.find_first_of(sep, b);
+		result.push_back(in.substr(b, e-b));
+		b = e;
+	}
+	return result;
+}
+
 bool FileExistsRaw(const char *name) {
   std::ifstream ifs(name);
   return ifs.good();

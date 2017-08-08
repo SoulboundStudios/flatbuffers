@@ -152,6 +152,7 @@ struct Type {
 struct Value {
   Value() : constant("0"), offset(static_cast<voffset_t>(
                                 ~(static_cast<voffset_t>(0U)))) {}
+  Value(const Value &value) : type(value.type), constant(value.constant), offset(value.offset) {}
   Type type;
   std::string constant;
   voffset_t offset;
@@ -554,6 +555,9 @@ class Parser : public ParserState {
 
   FLATBUFFERS_CHECKED_ERROR CheckInRange(int64_t val, int64_t min, int64_t max);
 
+  EnumDef *LookupEnum(const std::string &id) const;
+  StructDef *LookupStruct(const std::string &name) const;
+
 private:
   FLATBUFFERS_CHECKED_ERROR Error(const std::string &msg);
   FLATBUFFERS_CHECKED_ERROR ParseHexNum(int nibbles, uint64_t *val);
@@ -562,7 +566,6 @@ private:
   bool Is(int t);
   FLATBUFFERS_CHECKED_ERROR Expect(int t);
   std::string TokenToStringId(int t);
-  EnumDef *LookupEnum(const std::string &id);
   FLATBUFFERS_CHECKED_ERROR ParseNamespacing(std::string *id,
                                              std::string *last);
   FLATBUFFERS_CHECKED_ERROR ParseTypeIdent(Type &type);

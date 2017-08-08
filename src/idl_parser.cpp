@@ -522,8 +522,8 @@ CheckedError Parser::ParseNamespacing(std::string *id, std::string *last) {
   return NoError();
 }
 
-EnumDef *Parser::LookupEnum(const std::string &id) {
-  // Search thru parent namespaces.
+EnumDef *Parser::LookupEnum(const std::string &id) const {
+  // Search through parent namespaces.
   for (int components = static_cast<int>(namespaces_.back()->components.size());
        components >= 0; components--) {
     auto ed = enums_.Lookup(
@@ -532,6 +532,18 @@ EnumDef *Parser::LookupEnum(const std::string &id) {
   }
   return nullptr;
 }
+
+StructDef *Parser::LookupStruct(const std::string &id) const {
+	// Search through parent namespaces.
+	for (int components = static_cast<int>(namespaces_.back()->components.size());
+		components >= 0; components--) {
+		auto ed = structs_.Lookup(
+			namespaces_.back()->GetFullyQualifiedName(id, components));
+		if (ed) return ed;
+	}
+	return nullptr;
+}
+
 
 CheckedError Parser::ParseTypeIdent(Type &type) {
   std::string id = attribute_;
@@ -750,6 +762,10 @@ CheckedError Parser::ParseField(StructDef &struct_def) {
       val->constant = NumToString(id - 1);
       typefield->attributes.Add("id", val);
     }
+
+	typefield->required = field->required;
+	auto reqS = field->attributes.Lookup("schemaRequired");
+	if (reqS) typefield->attributes.Add("schemaRequired", new Value(*reqS));
   }
 
   EXPECT(';');
