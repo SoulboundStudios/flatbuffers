@@ -267,7 +267,7 @@ namespace flatbuffers {
             required_string.append(" ]\\");
             code_ += required_string;
 		  }
-
+      code_ += "      \"additionalProperties\" : false";
 		  // if additionalProperties?  metadata?
 		  // code_ += ",";
 		  // code_ += "      \"additionalProperties\" : false";
