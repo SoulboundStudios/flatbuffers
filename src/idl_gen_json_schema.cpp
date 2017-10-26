@@ -107,7 +107,8 @@ namespace flatbuffers {
 			return GenTypeRef(type.struct_def);
 		  }
 		  case BASE_TYPE_UNION: {
-			std::string union_type_string("\"anyOf\": [");
+			std::string union_type_string("\"anyOf\": [\n");
+
 			const auto &union_types = type.enum_def->vals.vec;
 			for (auto ut = union_types.cbegin(); ut < union_types.cend(); ++ut) {
 			  auto &union_type = *ut;
@@ -115,13 +116,14 @@ namespace flatbuffers {
 				continue;
 			  }
 			  if (union_type->union_type.base_type == BASE_TYPE_STRUCT) {
-				union_type_string.append("{ " + GenTypeRef(union_type->union_type.struct_def) + " }");
+				union_type_string.append("          { " + GenTypeRef(union_type->union_type.struct_def) + " }");
 			  }
 			  if (union_type != *type.enum_def->vals.vec.rbegin()) {
 				union_type_string.append(",");
 			  }
+			  union_type_string.append("\n");
 			}
-			union_type_string.append("]");
+			union_type_string.append("        ]");
 			return union_type_string;
 		  }
 		  case BASE_TYPE_UTYPE:
@@ -267,8 +269,8 @@ namespace flatbuffers {
             required_string.append(" ]\\");
             code_ += required_string;
 		  }
-      code_ += "      \"additionalProperties\" : false";
-		  // if additionalProperties?  metadata?
+
+		  // additionalProperties metadata? Soulbound usage definitely doesn't want this
 		  // code_ += ",";
 		  // code_ += "      \"additionalProperties\" : false";
 
