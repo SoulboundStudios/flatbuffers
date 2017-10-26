@@ -41,6 +41,7 @@ namespace flatbuffers {
       case BASE_TYPE_UINT:
       case BASE_TYPE_LONG:
       case BASE_TYPE_ULONG:
+		  return "integer";
       case BASE_TYPE_FLOAT:
       case BASE_TYPE_DOUBLE:
         return "number";
@@ -266,6 +267,10 @@ namespace flatbuffers {
             required_string.append(" ]\\");
             code_ += required_string;
 		  }
+
+		  // if additionalProperties?  metadata?
+		  // code_ += ",";
+		  // code_ += "      \"additionalProperties\" : false";
 
 		  auto *sibling = structure->attributes.Lookup("sibling");
 		  auto *siblingType = structure->attributes.Lookup("siblingType");
